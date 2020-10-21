@@ -3,6 +3,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <queue>
+#include <functional> //std::ref
 
 std::mutex m;
 std::condition_variable cv;
@@ -10,8 +11,7 @@ std::queue<int> q;
 bool lock_free = false;
 
 // workers consume from the queue and sum up the number they consume
-void worker_thread(int n, int *sum) {
-    int sum = 0;
+void worker_thread(int n, int& sum) {
     // spin until the queue is empty
     while (q.size() > 0 || !lock_free) {
         //critical section    
