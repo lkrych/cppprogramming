@@ -10,7 +10,7 @@ std::queue<int> q;
 bool lock_free = false;
 
 // workers consume from the queue and sum up the number they consume
-void worker_thread(int n) {
+void worker_thread(int n, int *sum) {
     int sum = 0;
     // spin until the queue is empty
     while (q.size() > 0 || !lock_free) {
@@ -26,7 +26,7 @@ void worker_thread(int n) {
         int r = q.front();
         q.pop();
         std::cout << "Thread " << n << " is adding " << r << " to it's sum." << std::endl;
-        sum += r;
+        sum[n] += r;
 
         lk.unlock();
         lock_free = true;
@@ -54,24 +54,28 @@ int main(int argc, char *argv[]) {
         std::cout << " Usage ./queue 5 10 (where 5 is number of worker threads and 10 refers to the number of items to put on the queue)  \n";
         exit(1);
     }
+
+    unsigned long const hardware_threads = std::thread::hardware_concurrency();
+
+    std::cout << "Number of supported hardware threads: " << hardware_threads << "\n";
+
     int n_threads = std::stoi(argv[1]);
     int n_items = std::stoi(argv[2]);
 
-    std::thread t[n_threads];
-    int sum = 0;
+    std::vector<std::thread> threads;
+    int sum[n_threads];
 
     //create producer
     std::thread p(producer_thread, n_items);
     
     // create workers
     for (int i = 0; i < n_threads; i++) {
-        t[i] = std::thread(worker_thread, i);
+        threads.push_back(std::thread(worker_thread, i, std::ref(sum)));
     }
 
     //Join the threads with the main thread
     p.join();
-    for (int i = 0; i < n_threads; ++i) {
-        t[i].join();
-    }
+    std::for_each(threads.begin(), threads.end(),
+        std::mem_fn(&std::thread::join)); 
     
 }
