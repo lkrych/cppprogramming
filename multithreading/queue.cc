@@ -19,6 +19,10 @@ void worker_thread(int n) {
         cv.wait(lk, []{return lock_free;});
 
         lock_free = false;
+        if (q.size() == 0) {
+            break;
+        }
+
         int r = q.front();
         q.pop();
         std::cout << "Thread " << n << " is adding " << r << " to it's sum." << std::endl;
@@ -26,8 +30,7 @@ void worker_thread(int n) {
 
         lk.unlock();
         lock_free = true;
-        cv.notify_one();
-
+        cv.notify_all();
     }
     std::cout << "Thread " << n << " exited with sum " << sum << ".\n";
 }
@@ -42,7 +45,7 @@ void producer_thread(int nums) {
     }
     lk.unlock();
     lock_free = true;
-    cv.notify_one();
+    cv.notify_all();
 }
 
 
