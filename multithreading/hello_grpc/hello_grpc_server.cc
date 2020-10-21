@@ -1,4 +1,5 @@
-#include <stdio.h>
+#include <iostream>
 
-#include <grpcpp/grpcpp.h>
-#include ""
+int main() {
+    std::cout << "Hello Server \n";
+}
