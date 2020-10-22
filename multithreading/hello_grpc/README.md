@@ -31,8 +31,23 @@ protoc --cpp_out=. $<
 
     2. The only problem is that `hello.pb.cc` doesn't exist! Luckily another make target exists that matches any files that match `%.pb.cc`. The entity before the `:`in a Makefile is known as the **target**. A Makfile contains recipes for creating the target. Thus because the makefile wants to create the `hello.pb.cc` file, it starts executing the `%.pb.cc` target.
     3. This target's prerequisite is `%.proto`, which because we want to create `hello.pb.cc`, matches to `hello.proto`. Yay! Finally a file that exists in our directory!
-    4. Finally, the makefile starts to execute the rules of the target. Note that the `$<` syntax subsitutes the prerequisite into the command.
+    4. Finally, the makefile starts to execute the rules of the target. Note that the `$<` syntax substitutes the prerequisite into the command.
     ```bash
     protoc --cpp_out=. hello.proto
     ```
-    5. The invocation of the proto compiler yields the target file: `hello.pb.cc`. Hooray! We've 
+    5. The invocation of the proto compiler yields the target file: `hello.pb.cc`. Hooray! Of course, now we need to yield the actual prerequisite of the `client` which is `hello.pb.o`. 
+    6. Once the `hello.pb.cc` file is created, the makefile knows how to create an object file from it, it uses the c++ compiler.
+    ```bash
+    g++ -std=c++11 -I/usr/local/opt/openssl/include `pkg-config --cflags protobuf grpc`  -c -o hello.pb.o hello.pb.cc
+    ```
+    7. This yields the prerequisite for `client`, `hello.pb.o`. 
+    8. From here the Makefile moves onto the next prerequisites, `hello.grpc.pb.o hello_grpc_client.o`, which follow a similar pattern. I won't walk through every step, but you should trace through the following output of the Makefile to make sure you understand what is happening. 
+    ```bash
+    protoc --grpc_out=. --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` hello.proto
+    g++ -std=c++11 -I/usr/local/opt/openssl/include `pkg-config --cflags protobuf grpc`  -c -o hello.grpc.pb.o hello.grpc.pb.cc
+    g++ -std=c++11 -I/usr/local/opt/openssl/include `pkg-config --cflags protobuf grpc`  -c -o hello_grpc_client.o hello_grpc_client.cc
+    g++ hello.pb.o hello.grpc.pb.o hello_grpc_client.o -L/usr/local/lib `pkg-config --libs protobuf grpc++` -o client
+    rm hello.grpc.pb.cc hello.pb.cc
+    ```
+    9. Lastly, the Makefile will delete all the intermediary files generated through the compilation process. If you want to leave these files, you need to use the `PRECIOUS` directive.
+5. The `server` command follows the same pattern as the client. 
