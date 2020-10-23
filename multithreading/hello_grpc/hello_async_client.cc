@@ -8,6 +8,7 @@ using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
 using grpc::CompletionQueue;
+using grpc::ClientAsyncResponseReader;
 
 using hello::HelloService;
 using hello::Greeting;
@@ -34,9 +35,7 @@ class HelloServiceClient {
         // an instance to store in "call" but does not actually start the RPC
         // because we are using the async API, we need to hold onto the "call"
         // instance in order to get updates on the ongoing RPC
-        std::unique_ptr<ClientAsyncResponseReader<GreetingReply> > rpc(
-            stub_->PrepareAsyncsayHello(&context, request, &cq));
-        )
+        std::unique_ptr<ClientAsyncResponseReader<GreetingResponse> > rpc(stub_->PrepareAsyncsayHello(&context, request, &cq));
 
         rpc->StartCall();
 
@@ -52,7 +51,7 @@ class HelloServiceClient {
         // The return value of Next should always be checked. This return value
         // tells us whether there is any kind of event or the cq_ is shutting down.
         GPR_ASSERT(cq.Next(&got_tag, &ok));
-
+        
         // Verify that the result from "cq" corresponds, by its tag, our previous
         // request.
         GPR_ASSERT(got_tag == (void*)1);
