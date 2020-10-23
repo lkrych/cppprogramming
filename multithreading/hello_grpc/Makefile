@@ -28,4 +28,4 @@ async_server: hello.pb.o hello.grpc.pb.o hello_async_server.o
 	protoc --cpp_out=. $<
 
 clean:
-	rm -f *.o *.pb.cc *.pb.h client server
+	rm -f *.o *.pb.cc *.pb.h client server async_client async_server
