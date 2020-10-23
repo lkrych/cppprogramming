@@ -45,7 +45,7 @@ void Run() {
     server->Wait();
 };
 
-int main(int argc, char** argv) {
+int main(int argc, char* argv[]) {
     Run();
     return 0;
 };
