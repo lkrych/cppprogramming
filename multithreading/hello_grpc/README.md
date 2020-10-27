@@ -7,6 +7,8 @@
 ## Table of Contents
 
 * [Makefile](#the-makefile)
+* [Synchronous gRPC](#synchronous-server-and-client)
+* [Asynchronous gRPC](#asynchronous-server-and-client)
 
 ## The Makefile
 
@@ -117,3 +119,96 @@ std::string response;
 
 response = client.sendRequest(name);
 ```
+
+Once this object is initialized, the private `stub_` instance can be utilized to send messages through the channel.
+
+```c++
+std::string sendRequest(std::string name) {
+    Greeting request;
+    request.set_name(name);
+    GreetingResponse reply;
+    ClientContext context;
+
+    Status status = stub_->sayHello(&context, request, &reply);
+
+    if (status.ok()) {
+        return reply.message();
+    } else {
+        std::cout << status.error_code() << ": " << status.error_message() << std::endl;
+        return " :( There was an error sending your greeting";
+    }
+}
+```
+
+## Asynchronous Server and Client
+
+The asynchronous server and client are more complicated than the synchronous versions. They do however follow the same basic behavior.
+
+Let's start with the client. It follows the same API that the synchronous client follows. 
+
+```c++
+class HelloServiceClient {
+    public:
+        HelloServiceClient(std::shared_ptr<Channel> channel) : stub_(HelloService::NewStub(channel)) {}
+    private:
+        std::unique_ptr<HelloService::Stub> stub_;
+```
+
+The big difference is in the `sendRequest` method.
+
+```c++
+std::string sendRequest(std::string name) {
+        Greeting request;
+        request.set_name(name);
+
+        GreetingResponse reply;
+        ClientContext context;
+        CompletionQueue cq;
+        Status status;
+
+        std::unique_ptr<ClientAsyncResponseReader<GreetingResponse> > rpc(stub_->PrepareAsyncsayHello(&context, request, &cq));
+
+        rpc->StartCall();
+
+        rpc->Finish(&reply, &status, (void*)1);
+        void* got_tag;
+
+        bool ok = false;
+
+        GPR_ASSERT(cq.Next(&got_tag, &ok));
+        
+        GPR_ASSERT(got_tag == (void*)1);
+
+        GPR_ASSERT(ok);
+
+        if (status.ok()) {
+            return reply.message();
+        } else {
+            std::cout << status.error_code() << ": " << status.error_message() << std::endl;
+            return " :( There was an error sending your greeting";
+        }
+    }
+```
+
+Instead of just using the `sayHello` method from the stub, we need to initialize the `rpc` object, which is an interface with the **completion queue**, the main point of interaction between asynchronous client and server. The client puts requests onto the queue, the server takes them off, services them, and then puts the response back onto the queue for the client to consume.
+
+The `rpc` object is an instance of the `ClientAsyncResponseReader`, a grpc class that helps to initiate the request and read for the response of type `GreetingResponse`.
+
+There are three important interactions with this object.
+
+1. The initialization of the object.
+    * `std::unique_ptr<ClientAsyncResponseReader<GreetingResponse> > rpc(stub_->PrepareAsyncsayHello(&context, request, &cq));`
+2. The invocation of the request.
+    * `rpc->StartCall();`
+3. The retrieval of the response from the completion queue.
+    * `rpc->Finish(&reply, &status, (void*)1); `
+
+The initialization of the async object does not actually send the request, this is done through the `StartCall()` function. 
+
+The `Finish()` function is not a blocking call. It is a request to receive the server's response msg and final status into the data structures passed to it, as well as to notify the tag on the client's completion queue when the server is finished.
+
+The blocking call on the client is `cq.Next(),`, which waits for the completion queue to return the tag passed into the `Finish()` call. Once this tag is returned, the reply and status will be ready.
+
+Long story short, the client initializes a connection with the server, and then sets up a completion queue that it polls for responses from the server. 
+
+Let's now take a look at the Async server. This implementation is even more dramatically different. Remember in the synchronous server we needed to initialize an instance of the server that inherits from the GRPC-initialized code. We do the same here. 
