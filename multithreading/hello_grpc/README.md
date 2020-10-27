@@ -211,4 +211,60 @@ The blocking call on the client is `cq.Next(),`, which waits for the completion 
 
 Long story short, the client initializes a connection with the server, and then sets up a completion queue that it polls for responses from the server. 
 
-Let's now take a look at the Async server. This implementation is even more dramatically different. Remember in the synchronous server we needed to initialize an instance of the server that inherits from the GRPC-initialized code. We do the same here. 
+Let's now take a look at the Async server. This implementation is even more dramatically different than it's synchronous cousin. Remember in the synchronous server we needed to initialize an instance of the server that inherits from the GRPC-initialized code. We do the same here, but this time we export an Asynchronous service.
+
+The class we are constructing is called `AsyncServer`. It has one public function, `Run()`, and one private function, `HandleRpcs()`. `Run` is used to initialize the server and to put it into the main serving loop. `HandleRpcs` is the main server loop. Let's look at each of these functions in turn.
+
+The server also has a few fields that it maintains.
+
+```c++
+std::unique_ptr<ServerCompletionQueue> cq_;
+HelloService::AsyncService service_;
+std::unique_ptr<Server> server_;
+```
+
+The completion queue will look familiar, it is the data structure used to manage the incoming requests to the server. The `service_` instance is used to calling GRPC-constructed methods. The `server_` field is used to maintain a reference to the server instance so that it can be deconstructed properly.
+
+```c++
+void Run() {
+    std::string server_address("0.0.0.0:5000");
+
+    ServerBuilder builder;
+
+    builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
+    
+    //Register service_ as the instance we'll communicate with the clients
+    builder.RegisterService(&service_);
+
+    //Get ahold of the completion queue used for Async communication with
+    // the grpc runtime
+    cq_ = builder.AddCompletionQueue();
+    // Assemble the server
+    server_ = builder.BuildAndStart();
+    std::cout << "Server listening on " << server_address << std::endl;
+
+    // Proceed to server's main loop.
+    HandleRpcs();
+}
+```
+
+The instantiation of the asynchronous service happens in the `Run()` method on the AsyncServer class. In this method the ServerBuilder helper function from GRPC is used to establish the listening function of the service and initialize the completion queue. Once this is done, the server enters its main loop, `HandleRpcs()`.
+
+```c++
+void HandleRpcs() {
+    //spawn a new CallData instance to serve new clients.
+    new CallData(&service_, cq_.get());
+    void* tag; //uniquely identifies a request 
+    bool ok;
+    while (true) {
+        // Block waiting to read the next event from the completion queue.
+        // The event is uniquely identified by its tag, which in this case is the 
+        // memory address of the CallData instance.
+        // The return value of Next should always be checked. This value tells us whether
+        // there is any kind of event or cq_ is shutting down
+        GPR_ASSERT(cq_->Next(&tag, &ok));
+        GPR_ASSERT(ok);
+        static_cast<CallData*>(tag)->Proceed();
+    }
+}
+```
