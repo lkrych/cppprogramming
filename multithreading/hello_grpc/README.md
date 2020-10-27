@@ -268,3 +268,67 @@ void HandleRpcs() {
     }
 }
 ```
+
+The purpose of the `HandleRpcs()` function is to provide a method for querying the shared completion queue. In the method, the server creates a new data structure, the CallData object to maintain the state of each asynchronous RPC request so that the server can handle multiple requests concurrently. The CallData object is initialized with a reference to the service and the completion queue instance being used by the service. Once a request has been received, it is used to invoke the CallData state machine that manages request processing.
+
+All of the logic for handling a request is encapsulated inside the CallData object. Let's take a look at how that works. 
+
+```c++
+class CallData {
+    public:
+        // Take in the "service" instance (the async server) and the completion queue
+        CallData(HelloService::AsyncService* service, ServerCompletionQueue* cq) :
+        service_(service), cq_(cq), responder_(&ctx_), status_(CREATE) {
+            //Invoke the serving logic 
+            Proceed();
+        }
+     private:
+        HelloService::AsyncService* service_;
+
+        ServerCompletionQueue* cq_;
+
+        ServerContext ctx_;
+
+        Greeting request_;
+
+        GreetingResponse reply_;
+
+        ServerAsyncResponseWriter<GreetingResponse> responder_;
+
+        enum CallStatus { CREATE, PROCESS, FINISH };
+        CallStatus status_;
+``` 
+
+The constructor takes two arguments, the service instance and the completion queue instance. Notice that it also has a `:` after the arguments. This is used for **initializing member fields before the body of the constructor executes**. This ensures that all the necessary fields are set before the `Proceed()` member function is called.
+
+```c++
+void Proceed() {
+    if (status_ == CREATE) {
+        status_ = PROCESS;
+        // As part of the initial CREATE state, we request that the system 
+        // start processing SayHello requests. In this request, "this" acts as 
+        // the taq uniquely identifying the request (so that different CallData instances
+        // can serve different requests concurrently), in this case the tag is the memory address
+        // of the CallData instance
+        service_->RequestsayHello(&ctx_, &request_, &responder_, cq_, cq_, this);
+    } else if (status_ == PROCESS) {
+        // Spawn a new CallData instance to serve new clients while we process
+        // the one for this CallData. The instance will deallocate itself
+        new CallData(service_, cq_);
+
+        //the actual processing!
+        std::string prefix("Hello ");
+        reply_.set_message(prefix + request_.name());
+
+        // let the gRPC runtime know we've finished using the memory
+        // address of this instance as the tag for the event
+        status_ = FINISH;
+        responder_.Finish(reply_, Status::OK, this);
+    } else {
+        GPR_ASSERT(status_ == FINISH);
+        // Once in the FINISH state, deallocate CallData
+        delete this;
+    }
+}
+```
+
