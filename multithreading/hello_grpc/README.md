@@ -332,3 +332,7 @@ void Proceed() {
 }
 ```
 
+The CallData function uses a simple state machine for managing the state of the request.
+1. **CREATE** - is used to initialize the request object on the server
+2. **PROCESS** - is used to process the request and send the response
+3. **FINISH** - is a cleanup step. It is used to deallocate the current instance of the call data structure.
