@@ -5,6 +5,8 @@
 
 #include "pool.h"
 
+// g++ -std=c++11 test_pool.cc -o test_pool
+
 int main()
 {
     
