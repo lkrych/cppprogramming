@@ -12,7 +12,7 @@ int main()
     
     thread_pool pool(2);
 
-    for(int i = 0; i < 4; ++i) {
+    for(int i = 0; i < 8; ++i) {
         pool.enqueue([i] {
             std::cout << "hello " << i << " world" << std::endl;
         });
