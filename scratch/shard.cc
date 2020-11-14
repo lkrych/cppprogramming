@@ -5,7 +5,7 @@
 struct mr_spec {
     std::vector<std::string> input_files;
     int map_kilobytes;
-}
+};
 
 struct FileData {
      std::string filename;
@@ -22,7 +22,7 @@ std::vector<FileShard> createFileShards(const mr_spec& mr_spec, int num_shards) 
     std::vector<FileShard> shards(num_shards);
     for(int i = 0; i < num_shards; i++) {
         struct FileShard fs = shards[i];
-        fs.files = std::vector<FileData>;
+        fs.files = std::vector<FileData>();
         fs.bytes_written = 0;
     }
     // variables for housekeeping
@@ -31,8 +31,8 @@ std::vector<FileShard> createFileShards(const mr_spec& mr_spec, int num_shards) 
     struct FileShard fs;
 
     //iterate through all the files
-    for(int i = 0; i < mr_spec.input.size(); i++) {
-        std::string filename = mr_spec.input[i];
+    for(int i = 0; i < mr_spec.input_files.size(); i++) {
+        std::string filename = mr_spec.input_files[i];
         std::ifstream file(filename);
 
         // create fd for fs
