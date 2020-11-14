@@ -26,6 +26,7 @@ int main(int argc, char* argv[]) {
         myfile.open(current_file);
         for (int j = 0; j < file_size; j++) {
             myfile.write(s.c_str(), s.size());
+            myfile.write("\n", 2);
         }
         myfile.close();
     }
