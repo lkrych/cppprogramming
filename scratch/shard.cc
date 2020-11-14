@@ -1,6 +1,8 @@
 #include <iostream>
 #include <fstream>
+#include <math.h>
 #include <vector>
+#include <sys/stat.h>
 
 struct mr_spec {
     std::vector<std::string> input_files;
@@ -16,6 +18,13 @@ struct FileShard {
      std::vector<FileData> files;
      int bytes_written;
 };
+
+float file_size(std::string filename) {
+     const char *cstr = filename.c_str();
+     struct stat st;
+     stat(cstr, &st);
+     return ceil(st.st_size/(float)1000);
+}
 
 std::vector<FileShard> createFileShards(const mr_spec& mr_spec, int num_shards) {
     // initialize shards
@@ -49,7 +58,7 @@ std::vector<FileShard> createFileShards(const mr_spec& mr_spec, int num_shards) 
                 int byte_size = line.length() * sizeof(char);
 
                 // check if we need a new shard
-                if (fs.bytes_written + byte_size > mr.max_kb) {
+                if (fs.bytes_written + byte_size > mr_spec.map_kilobytes) {
                     //we are done writing to the current shard and need to transition to a new one
                     current_shard_idx += 1;
                     current_file_data_idx = 0;
@@ -75,7 +84,7 @@ int main() {
     std::vector<std::string> input_files = {"input1.txt", "input2.txt", "input3.txt"};
     struct mr_spec mr;
     mr.input = input_files;
-    mr.max_kb = 2;
+    mr.map_kilobytes = 2;
 
     int num_shards = 0;
     float total_file_size = 0;
