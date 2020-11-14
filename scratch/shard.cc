@@ -26,18 +26,23 @@ float file_size(std::string filename) {
      return st.st_size;
 }
 
-std::vector<FileShard> createFileShards(const mr_spec& mr_spec, int num_shards) {
-    // initialize shards
-    std::vector<FileShard> shards(num_shards);
-    for(int i = 0; i < num_shards; i++) {
-        struct FileShard fs = shards[i];
-        fs.files = std::vector<FileData>();
-        fs.bytes_written = 0;
-    }
+struct FileShard initShard(std::string filename) {
+    struct FileShard fs;
+    struct FileData fd;
+    fs.files = std::vector<FileData>();
+    fs.bytes_written = 0;
+    fd.filename = filename;
+    fs.files.push_back(fd);
+    return fs;
+}
+
+std::vector<FileShard> createFileShards(const mr_spec& mr_spec) {
+    std::vector<FileShard> shards;
     // variables for housekeeping
     int current_shard_idx = 0;
     int current_file_data_idx = 0;
     struct FileShard fs;
+    struct FileData fd;
 
     //iterate through all the files
     for(int i = 0; i < mr_spec.input_files.size(); i++) {
@@ -45,33 +50,29 @@ std::vector<FileShard> createFileShards(const mr_spec& mr_spec, int num_shards) 
         std::ifstream file(filename);
 
         // create fd for fs
-        fs = shards[current_shard_idx];
-        struct FileData fd;
-        fd.filename = filename;
-        fs.files.push_back(fd);
+        fs = initShard(filename);
 
         //write the entire file out to FileShards
         if (file.is_open()) {
             std::string line;
             // read the file line by line
             while (std::getline(file, line)) {
-                std::cout << "reading from " << filename << " for fileshard " << current_file_data_idx << std::endl;
+                // std::cout << "reading from " << filename << " for fileshard " << std::endl;
                 int byte_size = line.length() * sizeof(char);
-                std::cout << "bytes read is " << byte_size << std::endl;
+                // std::cout << "bytes read is " << byte_size << std::endl;
                 // check if we need a new shard
                 if (fs.bytes_written + byte_size > mr_spec.map_kilobytes * 1000) {
-                    std::cout << "move onto next shard" << std::endl;
+                    // std::cout << "move onto next shard" << std::endl;
                     //we are done writing to the current shard and need to transition to a new one
-                    current_shard_idx += 1;
+                    shards.push_back(fs);
+                    fs = initShard(filename);
                     current_file_data_idx = 0;
                 }
                 //write to current shard
-                fs = shards[current_shard_idx];
                 fd = fs.files[current_file_data_idx];
                 fd.buffer.append(line);
                 fs.bytes_written += byte_size;
                 fs.files[current_file_data_idx] = fd;
-                shards[current_shard_idx] = fs;
             }
             file.close();
             current_file_data_idx += 1;
@@ -100,12 +101,8 @@ int main() {
     }
 
     std::cout << "Total file size of the input files is " << total_file_size << " kb" << std::endl;
-    // calculate number of shards
-    num_shards = ceil((total_file_size/1000.0 / mr.map_kilobytes));
 
-    std::cout << "The number of file shards should be " << num_shards << std::endl;
-
-    std::vector<FileShard> shards = createFileShards(mr, num_shards);
+    std::vector<FileShard> shards = createFileShards(mr);
 
     for (int i = 0; i < shards.size(); i++) {
         struct FileShard fs = shards[i];
