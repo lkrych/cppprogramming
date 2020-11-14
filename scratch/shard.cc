@@ -23,7 +23,8 @@ float file_size(std::string filename) {
      const char *cstr = filename.c_str();
      struct stat st;
      stat(cstr, &st);
-     return ceil(st.st_size/(float)1000);
+     std::cout << "Stat size of the input file is " << st.st_size << " kb" << std::endl;
+     return st.st_size;
 }
 
 std::vector<FileShard> createFileShards(const mr_spec& mr_spec, int num_shards) {
@@ -58,7 +59,7 @@ std::vector<FileShard> createFileShards(const mr_spec& mr_spec, int num_shards) 
                 int byte_size = line.length() * sizeof(char);
 
                 // check if we need a new shard
-                if (fs.bytes_written + byte_size > mr_spec.map_kilobytes) {
+                if (fs.bytes_written + byte_size > mr_spec.map_kilobytes * 1000) {
                     //we are done writing to the current shard and need to transition to a new one
                     current_shard_idx += 1;
                     current_file_data_idx = 0;
@@ -82,7 +83,7 @@ std::vector<FileShard> createFileShards(const mr_spec& mr_spec, int num_shards) 
 
 int main() {
 
-    std::vector<std::string> input_files = { "input1.txt", "input2.txt", "input3.txt" };
+    std::vector<std::string> input_files = { "input0.txt", "input1.txt", "input2.txt" };
     struct mr_spec mr;
     mr.input_files = input_files;
     mr.map_kilobytes = 2;
@@ -92,10 +93,12 @@ int main() {
     // loop through the input files and see how big they are
     for (int i = 0; i < mr.input_files.size(); i++) {
         float fs = file_size(mr.input_files[i]);
+        std::cout << "Size of the input file " << mr.input_files[i] << " is " << fs << " kb" << std::endl;
         total_file_size += fs;
     }
+    std::cout << "Total file size of the input files is " << total_file_size << " kb" << std::endl;
     // calculate number of shards
-    num_shards = ceil((total_file_size / mr.map_kilobytes));
+    num_shards = ceil((total_file_size/1000.0 / mr.map_kilobytes));
 
     std::cout << "The number of file shards should be " << num_shards << std::endl;
 
