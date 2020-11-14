@@ -23,7 +23,6 @@ float file_size(std::string filename) {
      const char *cstr = filename.c_str();
      struct stat st;
      stat(cstr, &st);
-     std::cout << "Stat size of the input file is " << st.st_size << " kb" << std::endl;
      return st.st_size;
 }
 
@@ -56,10 +55,12 @@ std::vector<FileShard> createFileShards(const mr_spec& mr_spec, int num_shards) 
             std::string line;
             // read the file line by line
             while (std::getline(file, line)) {
+                std::cout << "reading from " << filename << " for fileshard " << current_file_data_idx << std::endl;
                 int byte_size = line.length() * sizeof(char);
-
+                std::cout << "bytes read is " << byte_size << std::endl;
                 // check if we need a new shard
                 if (fs.bytes_written + byte_size > mr_spec.map_kilobytes * 1000) {
+                    std::cout << "move onto next shard" << std::endl;
                     //we are done writing to the current shard and need to transition to a new one
                     current_shard_idx += 1;
                     current_file_data_idx = 0;
@@ -69,6 +70,8 @@ std::vector<FileShard> createFileShards(const mr_spec& mr_spec, int num_shards) 
                 fd = fs.files[current_file_data_idx];
                 fd.buffer.append(line);
                 fs.bytes_written += byte_size;
+                fs.files[current_file_data_idx] = fd;
+                shards[current_shard_idx] = fs;
             }
             file.close();
             current_file_data_idx += 1;
@@ -93,9 +96,9 @@ int main() {
     // loop through the input files and see how big they are
     for (int i = 0; i < mr.input_files.size(); i++) {
         float fs = file_size(mr.input_files[i]);
-        std::cout << "Size of the input file " << mr.input_files[i] << " is " << fs << " kb" << std::endl;
         total_file_size += fs;
     }
+
     std::cout << "Total file size of the input files is " << total_file_size << " kb" << std::endl;
     // calculate number of shards
     num_shards = ceil((total_file_size/1000.0 / mr.map_kilobytes));
