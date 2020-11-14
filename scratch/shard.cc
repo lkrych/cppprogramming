@@ -78,12 +78,13 @@ std::vector<FileShard> createFileShards(const mr_spec& mr_spec, int num_shards) 
     return shards;
 }
 
+// g++ shard.cc -o shard -std=c++11
 
 int main() {
 
-    std::vector<std::string> input_files = {"input1.txt", "input2.txt", "input3.txt"};
+    std::vector<std::string> input_files = { "input1.txt", "input2.txt", "input3.txt" };
     struct mr_spec mr;
-    mr.input = input_files;
+    mr.input_files = input_files;
     mr.map_kilobytes = 2;
 
     int num_shards = 0;
@@ -98,10 +99,10 @@ int main() {
 
     std::cout << "The number of file shards should be " << num_shards << std::endl;
 
-    std::vector<FileShard> fs = createFileShards(mr, num_shards);
+    std::vector<FileShard> shards = createFileShards(mr, num_shards);
 
-    for (int i = 0; i < fs.size(); i++) {
-        struct FileShard fs = fs[i];
+    for (int i = 0; i < shards.size(); i++) {
+        struct FileShard fs = shards[i];
         std::cout << "Shard " << i << " is " << fs.bytes_written << " bytes" << std::endl;
         for (int j = 0; j < fs.files.size(); j++) {
             struct FileData fd = fs.files[i];
