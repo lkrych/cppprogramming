@@ -36,6 +36,13 @@ struct FileShard initShard(std::string filename) {
     return fs;
 }
 
+struct FileShard initFileData(struct FileShard fs, std::string filename) {
+    struct FileData fd;
+    fd.filename = filename;
+    fs.files.push_back(fd);
+    return fs;
+}
+
 std::vector<FileShard> createFileShards(const mr_spec& mr_spec) {
     std::vector<FileShard> shards;
     // variables for housekeeping
@@ -50,7 +57,14 @@ std::vector<FileShard> createFileShards(const mr_spec& mr_spec) {
         std::ifstream file(filename);
 
         // create fd for fs
-        fs = initShard(filename);
+        if (int i = 0) {
+            // we only need to init the shard on the first go around
+            // every other time it will be initialized when the byte limit is reached
+            fs = initShard(filename);
+        } else {
+            // when we start reading a new file, create a new FileData structure
+            fs = initFileData(fs, filename);
+        }
 
         //write the entire file out to FileShards
         if (file.is_open()) {
@@ -77,9 +91,8 @@ std::vector<FileShard> createFileShards(const mr_spec& mr_spec) {
             file.close();
             current_file_data_idx += 1;
         }
-
     }
-
+    shards.push_back(fs);
     return shards;
 }
 
@@ -100,17 +113,22 @@ int main() {
         total_file_size += fs;
     }
 
-    std::cout << "Total file size of the input files is " << total_file_size << " kb" << std::endl;
+    std::cout << "Total data size of the input files is " << total_file_size << " kb" << std::endl;
 
     std::vector<FileShard> shards = createFileShards(mr);
 
+    std::cout << "Total shards created " << shards.size() << " for divisions of "<< mr.map_kilobytes << " kb" << std::endl;
+    int sum_of_data = 0;
     for (int i = 0; i < shards.size(); i++) {
         struct FileShard fs = shards[i];
         std::cout << "Shard " << i << " is " << fs.bytes_written << " bytes" << std::endl;
+        sum_of_data += fs.bytes_written;
         for (int j = 0; j < fs.files.size(); j++) {
-            struct FileData fd = fs.files[i];
+            struct FileData fd = fs.files[j];
             std::cout << "Shard " << i << " has fileData for " << fd.filename << std::endl;
         }
     }
+
+    std::cout << "Total data size of the shards is " << sum_of_data << " kb" << std::endl;
 
 }
