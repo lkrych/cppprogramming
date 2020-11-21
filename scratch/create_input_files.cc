@@ -13,7 +13,7 @@ int main(int argc, char* argv[]) {
 
     std::string file_name = "input";
     std::string file_suffix = ".txt";
-    std::vector<char> one_kb(1024, 0);
+    std::vector<char> one_kb(1022, 0);
     std::string s;
 	for (char c: one_kb) {
 		s.push_back(c);
